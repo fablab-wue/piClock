@@ -15,7 +15,9 @@ This description is commen for alle variants of clocks. Replace the 'XXX' with t
   * See: https://www.raspberrypi.org/downloads/
 
 * Change boot files on MicroSD card for headless NDIS (USB/Ethernet) connection
-  * See: http://www.circuitbasics.com/raspberry-pi-zero-ethernet-gadget/
+  * See: http://www.circuitbasics.com/raspberry-pi-zero-ethernet-gadget/   or
+  https://www.factoryforward.com/pi-zero-w-headless-setup-windows10-rndis-driver-issue-resolved/
+
 
 * Boot Raspberry Pi (can take more than a minute at first time)
 
@@ -33,7 +35,7 @@ This description is commen for alle variants of clocks. Replace the 'XXX' with t
   * Set Timezone in menu `Localization Options` -> `Timezone`
   * (optional) Enable I2C if needed in menu `Interfacing Options` -> `I2C`
   * (optional) Enable 1-Wire if needed in menu `Interfacing Options` -> `1-Wire`
-  * Note: Do NOT enable SPI
+  * Note: If using GPIO xx, do NOT enable SPI 
 
 * Update your RPi system with `sudo apt-get update` and `sudo apt-get upgrade`
 

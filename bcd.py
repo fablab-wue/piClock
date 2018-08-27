@@ -11,6 +11,7 @@ __version__     = "0.0.1"
 
 import pigpio
 import time
+from argparse import ArgumentParser
 
 #######
 # definitions and configuration
@@ -157,6 +158,9 @@ def loop():
 
         if 'PM' in GPIOS:
             val['PM'] = h >= 12
+
+        if 'C' in GPIOS:
+            val['C'] = 1 - (s & 1)
 
         # set predicted lum values
         for key, is_on in val.items():
