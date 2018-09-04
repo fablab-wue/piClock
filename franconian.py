@@ -33,8 +33,8 @@ GPIOS = {
     'PAST': 23,
     # quaters 'three' 'quater' 'half'
     'Q3': 14,
-    'Q1': 15,
-    'Q2': 18,
+    'Q1': 18,
+    'Q2': 15,
     # hours
     'H1': 29,
     'H2': 19,
@@ -62,9 +62,9 @@ LED_CURRENT = 8   # mA    values: 2, 4, 8, 16
 # init PIGPIO lib and deamon
 
 try:
-    PI = pigpio.pi(REMOTE_RPI)
-except:
     PI = pigpio.pi()
+except:
+    PI = pigpio.pi(REMOTE_RPI)
 if not PI.connected:
     raise Exception('No connection to PIGPIO deamon on RPi')
 
@@ -74,6 +74,8 @@ if not PI.connected:
 LUM_ACT = {}
 LUM_PRED = {}
 last_min = -1
+last_sec = -1
+animation = -2
 
 #######
 
@@ -97,7 +99,7 @@ def init():
 # =====
 
 def loop():
-    global last_min
+    global last_min, last_sec, animation
     t = ''
 
     # get act time
@@ -110,8 +112,21 @@ def loop():
         h = (m // 60) % 24
         m = m % 60
 
+    # show animation at start
+    if animation < (len(GPIOS)+1):
+        for i, key in enumerate(GPIOS):
+            if animation == i:
+                LUM_PRED[key] = LUM1
+            else:
+                LUM_PRED[key] = LUM0
+
+        s = int(time.time())
+        if s != last_sec:   # only on change
+            last_sec = s
+            animation += 1
+
     # set LED PWM values
-    if m != last_min:   # only on change
+    elif m != last_min:   # only on change
         last_min = m
         val = {}
 
@@ -129,12 +144,14 @@ def loop():
 
             q = (m + 7) // 15
             if 1 <= q <= 3:
-                val['Q'+str(q)] = 1
                 if q == 2:
+                    val['Q2'] = 1
                     t += 'halb '
                 if q == 3:
+                    val['Q3'] = 1
                     t += 'drei'
                 if q == 1 or q == 3:
+                    val['Q1'] = 1
                     t += 'viertel '
 
         # hours
