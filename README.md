@@ -19,17 +19,36 @@ See [detail description](/franconian.md)
 
 ## Pro and Cons for using a Raspberry Pi instead of Arduino/ESP
 
+### Why RPi?
+
 #### Pros:
-* The RPi can use 26 GPIO pins directly with PWM without aa additional port expander or shift register. Most smaller/cheeper controller has too less pins to drive the LEDs directly.
-* The RPi has a build in current limiter at GPIO pins. Resistors in line to LEDs are not necessary.
-* The RPi Zero has an onboard WiFi to get the correct time via NTP. No external RTC needed.
-* The RPi Zero has additional power and pins to run additional IoT features.
-* Faster development (and code change).
+
+ * The RPi can use up to 26 GPIO pins directly without an additional port expander or shift register. Most smaller/cheaper controllers do not have enough pins to drive the 20 LEDs directly.
+ * The RPi has a built in current limiter on the GPIO pins. Resistors in line to LEDs are not necessary.
+ * The RPi Zero has onboard WiFi to get the correct time via NTP. No external RTC is needed.
+ * The RPi Zero has sufficient power and pins to run additional IoT features.
+ * Faster development (and code change). 
 
 #### Cons:
-* Linux! Many steps to do for setup the controller. See next chanpter...
-* Linux! Potential security leak in your local network.
-* Little more expensive (about 20 Euro) than a ESP8266 (about 7 Euro).
+
+ * Linux! Many steps to setup the controller. See chapter on GitHub Wiki...
+ * Linux! Potential security leaks to your local network.
+ * A little more expensive (about 20 Euro incl. MicroSD) than an ESP8266 (<7 Euro). 
+
+### Why pigpio-lib?
+
+#### Pros:
+
+ * This lib can handle software PWM for ALL 26 GPIOs without glitches.
+ * Faster than BCM-lib.
+ * Development and debugging can be done on your PC, remote-controlling the RPi GPIOs over the network.
+ * Implementation for several programming languages available. 
+
+#### Cons:
+
+ * pigpio-deamon eats 7...10 percent of CPU time continously, independent of how many GPIOs or PWMs are active.
+ * The lib's documentation leaves room for improvement. 
+
 
 ## Prepare the Raspberry Pi Zero
 
