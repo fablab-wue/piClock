@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 """
 Neo-Pixel-Clock for RPi Zero W
-with x library
-See https://learn.adafruit.com/neopixels-on-raspberry-pi?view=all
+With library from https://github.com/jgarff/rpi_ws281x
+For usage see https://learn.adafruit.com/neopixels-on-raspberry-pi?view=all
 """
 __author__      = "Jochen Krapf"
 __email__       = "jk@nerd2nerd.org"
@@ -12,6 +12,7 @@ __version__     = "0.0.1"
 
 import pigpio
 import time
+import math
 from argparse import ArgumentParser
 try:
     from neopixel import *
@@ -22,17 +23,24 @@ except:
 #######
 # definitions and configuration
 
-#args.leds = 24
-LED_MER = 0
+LED_MER = 30
 
 LED_LUM_MAX = 255
 LED_LUM_SCALE = 1.0
 
 # LED strip configuration:
-LED_FREQ_HZ = 800000  # LED signal frequency in hertz (usually 800khz)
-LED_DMA     = 5       # DMA channel to use for generating signal (try 5)
+LED_COUNT       = 60      # Number of LED pixels.
+LED_PIN         = 18      # GPIO pin connected to the pixels (must support PWM!).
+LED_FREQ_HZ     = 800000  # LED signal frequency in hertz (usually 800khz)
+LED_DMA         = 10      # DMA channel to use for generating signal (try 10)
+LED_BRIGHTNESS  = 255     # Set to 0 for darkest and 255 for brightest
+LED_INVERT      = False   # True to invert the signal (when using NPN transistor level shift)
+LED_CHANNEL     = 0
+LED_STRIP       = ws.WS2812_STRIP
+#LED_STRIP       = ws.SK6812_STRIP
+#LED_STRIP       = ws.SK6812W_STRIP
 
-REMOTE_RPI = 'raspberrypi.local'
+#REMOTE_RPI = 'raspberrypi.local'
 GPIO_BUTTON = 21
 
 #######
@@ -49,20 +57,20 @@ GPIO_BUTTON = 21
 # global variables
 
 last_button = -1
-V = [0, 0, 0]
+V = []
 
 strip = None
 args = None
 
 #######
 
-def hand_function(x):
-    if not -1 < x < 1:
+def hand_function(x, hand_width_n, hand_width_p):
+    if not -hand_width_n < x < hand_width_p:
         return 0.0
     if x > 0:
-        y = 1 - x
+        y = 1 - x / hand_width_p
     else:
-        y = 1 + x
+        y = 1 + x / hand_width_n
     return y
 
 # -----
@@ -71,8 +79,8 @@ def clear_leds():
     global args
 
     for i in range(args.leds):
-        for j in range(3):
-            V[j][i] = 0
+        for c in range(3):
+            V[i][c] = 0
 
 # -----
 
@@ -87,18 +95,18 @@ def add_led_color(idx, value, rgb):
         idx -= args.leds
 
     r, g, b = rgb
-    V[0][idx] += r * value
-    V[1][idx] += g * value
-    V[2][idx] += b * value
+    V[idx][0] += r * value
+    V[idx][1] += g * value
+    V[idx][2] += b * value
 
 # -----
 
-def set_hand(idx, hand_pos, hand_width, rgb):
+def set_hand(idx, hand_pos, hand_width_n, hand_width_p, rgb):
     global args
 
     for mirror in range(-args.leds, 2*args.leds, args.leds):
-        x = (idx + mirror - hand_pos * args.leds) / hand_width
-        value = hand_function(x)
+        x = (idx + mirror - hand_pos * args.leds)
+        value = hand_function(x, hand_width_n, hand_width_p)
         add_led_color(idx, value, rgb)
 
 # =====
@@ -106,14 +114,16 @@ def set_hand(idx, hand_pos, hand_width, rgb):
 def init():
     global strip, args
 
-    for j in range(3):
-        V[j] = [0]*args.leds
+    V = [0]*args.leds
+    for i in range(args.leds):
+        V[i] = [0, 0, 0]
 
     #PI.set_mode(GPIO_BUTTON, pigpio.INPUT)
     #PI.set_pull_up_down(GPIO_BUTTON, pigpio.PUD_UP)
+    
     if NEOPIXEL:
         # Create NeoPixel object with appropriate configuration.
-        strip = Adafruit_NeoPixel(args.leds, args.pin, LED_FREQ_HZ, LED_DMA, args.invert)
+        strip = Adafruit_NeoPixel(args.leds, args.pin, LED_FREQ_HZ, LED_DMA, args.invert, LED_BRIGHTNESS, LED_CHANNEL, LED_STRIP)
         # Intialize the library (must be called once before other functions).
         strip.begin()
         strip.setBrightness(255)
@@ -122,7 +132,6 @@ def init():
 
 def loop():
     global strip, args
-
     global last_button
 
     clear_leds()
@@ -135,7 +144,7 @@ def loop():
 
     # get act time
     t = time.time()
-    t -= time.altzone
+    t -= time.altzone   # time zone + dst
 
     # norm s, m, h to 0...1
     s = t / 60
@@ -145,32 +154,37 @@ def loop():
     m = m - int(m)
     h = h - int(h)
 
-    p = t / 3.14
-    # linear ping-pong -1...1
-    p = (p - int(p) - 0.5) * 4
-    if p < -1: p = -2 - p
-    if p > 1: p = 2 - p
-    # pentulum
-    if p > 0:
-        p = 1 - p
-        p *= p
-        p = 1 - p
+    if False:
+        p = t / 3.14
+        # linear ping-pong -1...1
+        p = (p - int(p) - 0.5) * 4
+        if p < -1: p = -2 - p
+        if p > 1: p = 2 - p
+        # pentulum
+        if p > 0:
+            p = 1 - p
+            p *= p
+            p = 1 - p
+        else:
+            p = 1 + p
+            p *= p
+            p = -1 + p
     else:
-        p = 1 + p
-        p *= p
-        p = -1 + p
+        p = t * 2
+        p = math.sin(p)
     # scale to circle
-    p *= 0.1
-    p += 0.5
+    p *= 0.1   # size = +/-10%
+    p += 0.5   # position = 50% = bottom
 
 
     #print (h, m, s)
 
     for i in range(args.leds):
-        set_hand(i, s, 1.5, (0, 0, 0.8))
-        set_hand(i, m, 2.0, (0, 0.8, 0))
-        set_hand(i, h, 2.5, (0.8, 0, 0))
-        set_hand(i, p, 3.0, (0.4, 0.4, 0))
+        set_hand(i, s, 1.5, 0.5, (0, 0, 0.8))
+        set_hand(i, m, 3.0, 0.5, (0, 0.8, 0))
+        set_hand(i, h, 4.5, 0.5, (0.8, 0, 0))
+        if args.pentulum:
+            set_hand(i, p, 3.0, 3.0, (0.4, 0.4, 0))
 
     if not NEOPIXEL:
         SYM = ' .▁▂▃▅▆▇█#???????'
@@ -184,24 +198,23 @@ def loop():
     if NEOPIXEL:
         rgb = [0, 0, 0]
         for i in range(args.leds):
-            for j in range(3):
-                v = V[j][i]
+            for c in range(3):
+                v = V[i][c]
                 v *= LED_LUM_SCALE
                 v *= v   # gamma correction
                 v = int(v * LED_LUM_MAX + 0.5)
                 if v > LED_LUM_MAX: v = LED_LUM_MAX
                 rgb[j] = v
-            color = Color(rgb[1], rgb[0], rgb[2])
-            strip.setPixelColor(i, color)
+            strip.setPixelColorRGB(i, rgb[0], rgb[1], rgb[2])
         strip.show()
 
     return
 
     # check button
-    button = PI.read(GPIO_BUTTON)
-    if not button:
-        #TODO
-        pass
+    #button = PI.read(GPIO_BUTTON)
+    #if not button:
+    #    #TODO
+    #    pass
 
 # =====
 
@@ -211,29 +224,29 @@ def main():
     parser = ArgumentParser(prog='piClock', conflict_handler='resolve')
 
     parser.add_argument("-l", "--leds", 
-                        dest="leds", default=60, metavar='LEDS', type=int,
-                        help="Number of LEDs")
+        dest="leds", default=LED_COUNT, metavar='LEDS', type=int,
+        help="Number of LEDs")
 
     parser.add_argument("-m", "--meridiem", 
-                        dest="meridiem", default=30, metavar='LED', type=int,
-                        help="Index of meridiem LED")
+        dest="meridiem", default=LED_MER, metavar='LED', type=int,
+        help="Index of meridiem LED")
 
     parser.add_argument("-p", "--pin", 
-                        dest="pin", default=18, metavar='GPIO', type=int,
-                        help="GPIO Number")
+        dest="pin", default=LED_PIN, metavar='GPIO', type=int,
+        help="GPIO Number")
 
     parser.add_argument("-i", "--invert",
-                        dest="invert", default=False, action="store_true", 
-                        help="Invert GPIO pin")
+        dest="invert", default=LED_INVERT, action="store_true", 
+        help="Invert GPIO pin")
 
+    parser.add_argument("-u", "--nopentulum",
+        dest="pentulum", default=True, action="store_false", 
+        help="No Pentulum")
+    parser.add_argument("-U", "--pentulum",
+        dest="pentulum", default=True, action="store_true", 
+        help="Use Pentulum")
 
-    parser.add_argument("-w", "--noweb",
-                        dest="useWeb", default=True, action="store_false", 
-                        help="Don't start web server part")
-    parser.add_argument("-W", "--useweb",
-                        dest="useWeb", default=True, action="store_true", 
-                        help="Start web server part")
-                        
+    '''
     parser.add_argument("-a", "--loglevel", 
                         dest="logLevel", default=0, type=int, metavar="LEVEL",
                         help="Set the maximum logging level - 0=no output, 1=error, 2=warning, 3=info, 4=debug, 5=ext.debug")
@@ -245,7 +258,7 @@ def main():
     parser.add_argument("-q", "--quiet",
                         dest="verbose", default=True, action="store_false", 
                         help="don't print status messages to stdout")
-
+    '''
     args = parser.parse_args()
 
     init()
@@ -253,7 +266,7 @@ def main():
     try:
         while True:
             loop()
-            time.sleep(0.02)   # update with max 50 Hz
+            time.sleep(0.001)   # update with max ??? Hz
 
     except (KeyboardInterrupt, SystemExit):
         pass
