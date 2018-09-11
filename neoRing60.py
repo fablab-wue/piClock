@@ -29,16 +29,16 @@ LED_LUM_MAX = 255
 LED_LUM_SCALE = 1.0
 
 # LED strip configuration:
-LED_COUNT       = 60      # Number of LED pixels.
+LED_COUNT       = 60+49      # Number of LED pixels.
 LED_PIN         = 18      # GPIO pin connected to the pixels (must support PWM!).
 LED_FREQ_HZ     = 800000  # LED signal frequency in hertz (usually 800khz)
 LED_DMA         = 10      # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS  = 255     # Set to 0 for darkest and 255 for brightest
 LED_INVERT      = False   # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL     = 0
-LED_STRIP       = ws.WS2812_STRIP
+#LED_STRIP       = ws.WS2812_STRIP
 #LED_STRIP       = ws.SK6812_STRIP
-#LED_STRIP       = ws.SK6812W_STRIP
+LED_STRIP       = ws.SK6812W_STRIP
 
 #REMOTE_RPI = 'raspberrypi.local'
 GPIO_BUTTON = 21
@@ -76,11 +76,10 @@ def hand_function(x, hand_width_n, hand_width_p):
 # -----
 
 def clear_leds():
-    global args
+    global args, V
 
     for i in range(args.leds):
-        for c in range(3):
-            V[i][c] = 0
+        V[i] = [0, 0, 0]
 
 # -----
 
@@ -112,15 +111,16 @@ def set_hand(idx, hand_pos, hand_width_n, hand_width_p, rgb):
 # =====
 
 def init():
-    global strip, args
+    global strip, args, V
 
     V = [0]*args.leds
     for i in range(args.leds):
         V[i] = [0, 0, 0]
 
+
     #PI.set_mode(GPIO_BUTTON, pigpio.INPUT)
     #PI.set_pull_up_down(GPIO_BUTTON, pigpio.PUD_UP)
-    
+
     if NEOPIXEL:
         # Create NeoPixel object with appropriate configuration.
         strip = Adafruit_NeoPixel(args.leds, args.pin, LED_FREQ_HZ, LED_DMA, args.invert, LED_BRIGHTNESS, LED_CHANNEL, LED_STRIP)
@@ -198,14 +198,20 @@ def loop():
     if NEOPIXEL:
         rgb = [0, 0, 0]
         for i in range(args.leds):
+            rgb = V[i]
+            w = min(rgb)
             for c in range(3):
-                v = V[i][c]
+                rgb[c] -= w
+            rgb.append(w)
+
+            for c in range(4):
+                v = rgb[c]
                 v *= LED_LUM_SCALE
                 v *= v   # gamma correction
                 v = int(v * LED_LUM_MAX + 0.5)
                 if v > LED_LUM_MAX: v = LED_LUM_MAX
-                rgb[j] = v
-            strip.setPixelColorRGB(i, rgb[0], rgb[1], rgb[2])
+                rgb[c] = v
+            strip.setPixelColorRGB(i, rgb[0], rgb[1], rgb[2], rgb[3])
         strip.show()
 
     return
